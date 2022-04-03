@@ -1,6 +1,7 @@
 clear
 clc
 tic
+format longG
 %% 上色
 a = imread('rgb.png');
 mapea=ones(256,3);
@@ -32,7 +33,7 @@ z = -i*grid_div^2/(2*time_div)*m/hb;
 %/()
 % 输入平面波 本身方程为exp(i*p*x/h_bar)，这里设置m和h_bar 为1
 f = @(x) exp(i*m*v*x/hb);
-for j=1:grid/2/grid_div-1
+for j=grid/5/grid_div:2*grid/5/grid_div-1
     A(:,j,1)=A(:,j,1)+f(j*grid_div);
 end
 % C = A(:,:,1).*conj(A(:,:,1));
@@ -42,15 +43,15 @@ L = L-min(min(L));
 image(256*L/(max(max(L))));
 
 
-
+screen = zeros(alen,time_all/time_div);
 %% 开始计算迭代A(:,:,1)记录上一次的结果，A(:,:,2)记录由A(:,:,1)得到的结果，再赋值回去
-for j =2:time_all/time_div
+for j =1:time_all/time_div
 %     for l=1:grid/2/grid_div-1
 %     A(:,l,1)=A(:,l,1)+f(l*grid_div-v*time_div*j);
 %     end
-%     result = sum(sum(A(:,:,1)));
-%     result = (conj(result)*result)^0.5
-%     director(j) = result;
+    result = sum(sum(A(:,:,1)));
+    result = (conj(result)*result)^0.5
+    director(j) = result;
      %% 传播子计算
      %左半边
     for kx=1:grid/grid_div/2-1
@@ -59,7 +60,19 @@ for j =2:time_all/time_div
         G = sum(sum(G(1:grid/grid_div,1:grid/grid_div/2-1)));
         a=G;
         for lx=grid/grid_div/2:grid/grid_div-1
-            for ly=max(round(((grid-d)/grid_div/2-ky)/(grid/grid_div/2-kx)*(lx-kx)+ky),1):min(round(((grid+d)/grid_div/2-ky)/(grid/grid_div/2-kx)*(lx-kx)+ky),alen)
+            lo = ((grid-d)/grid_div/2+1-ky)/(grid/grid_div/2-kx)*(lx-kx)+ky;
+            low = fix(lo);
+            if (abs( round(lo)- (lo))<1/alen)
+                  low = round(lo);
+            end
+            low = max(low,1);
+            hi = ((grid+d)/grid_div/2-ky)/(grid/grid_div/2-kx)*(lx-kx)+ky;
+            high = ceil(hi);
+            if (abs(round(hi)-(hi))<1/alen)
+                high = round(hi);
+            end
+            high = min(high,alen);
+            for ly=low:high
                 a=a+exp(z*((lx-kx)^2+(ky-ly)^2))*A(ly,lx,1)*grid_div.^2;
             end
         end
@@ -74,7 +87,19 @@ for j =2:time_all/time_div
         G = sum(sum(G(1:grid/grid_div,grid/grid_div/2+1:grid/grid_div-1)));
         a=G;
         for lx=1:grid/grid_div/2
-            for ly=max(round(((grid-d)/grid_div/2-ky)/(grid/grid_div/2-kx)*(lx-kx)+ky),1):min(round(((grid+d)/grid_div/2-ky)/(grid/grid_div/2-kx)*(lx-kx)+ky),alen)
+            lo = ((grid-d)/grid_div/2+1-ky)/(grid/grid_div/2-kx)*(lx-kx)+ky;
+            low = fix(lo);
+            if (abs( round(lo)- (lo))<1/alen)
+                  low = round(lo);
+            end
+            low = max(low,1);
+            hi = ((grid+d)/grid_div/2-ky)/(grid/grid_div/2-kx)*(lx-kx)+ky;
+            high = ceil(hi);
+            if (abs(round(hi)-(hi))<1/alen)
+                high = round(hi);
+            end
+            high = min(high,alen);
+            for ly=low:high
                 a=a+exp(z*((lx-kx)^2+(ky-ly)^2))*A(ly,lx,1)*grid_div.^2;
             end
         end
@@ -93,12 +118,12 @@ for j =2:time_all/time_div
         a=G;
         A(ky,kx,2)=a;
     end
-A(1:round((grid-d)/grid_div/2),grid/grid_div/2,1)=0;
-A(round((grid+d)/grid_div/2+1):grid/grid_div,grid/grid_div/2,1)=0;
+A(1:round((grid-d)/grid_div/2),grid/grid_div/2,2)=0;
+A(round((grid+d)/grid_div/2+1):grid/grid_div,grid/grid_div/2,2)=0;
 A(:,:,1)=A(:,:,2); 
 % 强制归一化
 C = A(:,:,1).*conj(A(:,:,1));
-% A(:,1:alen-1,1)=A(:,1:alen-1,1)/sum(sum(C(:,1:alen-1)));
+
 %%
 %可视化
 L = real(A(:,:,1));
@@ -111,14 +136,21 @@ image(256*C/(max(max(C))));
 imwrite(round(256*C/(max(max(C)))),mapea,string(grid_div)+'r_con'+string(time_div)+'d='+string(d)+'\possi_'+string(j)+'.tif');
 imwrite(round(256*C/(max(max(C)))),'b '+string(grid_div)+'r_con'+string(time_div)+'d='+string(d)+'\possi_'+string(j)+'.tif');
 csvwrite(string(grid_div)+'r_con'+string(time_div)+'d='+string(d)+'\drector.csv',director)
+screen(:,j)=A(:,alen,1);
+writematrix(screen,string(grid_div)+'r_con'+string(time_div)+'d='+string(d)+'\screen.csv')
 j
 end
 toc
+
 %% 理论曲线
-% hef = @(x) (sin(m.*v.*d.*x.*grid_div./hb)./(m.*v.*d.*x.*grid_div./hb)).^2;
-% Z = [alen/2:-1:1,1:1:alen/2];
-% Y = hef(Z);
-% plot(1:1:alen,hef(Z));
+hef = @(x) (sin(m.*v.*d.*x.*grid_div./hb)./(m.*v.*d.*x.*grid_div./hb)).^2;
+Z = [alen/2:-1:1,1:1:alen/2];
+Y = hef(Z);
+plot(1:1:alen,hef(Z));
+hold on;
+plot(1:1:alen,abs(A(:,alen,1))./max(abs(A(:,alen,1))))
+hold off;
+
 %% 狭缝测试
 
 % kx =51 ;
